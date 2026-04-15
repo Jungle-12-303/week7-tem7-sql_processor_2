@@ -1,0 +1,12 @@
+# C build artifacts
+*.o
+
+# Executables produced by this repository
+/main
+/perf_test
+/condition_perf_test
+/unit_test
+
+# Common local build outputs
+/a.out
+*.dSYM/
