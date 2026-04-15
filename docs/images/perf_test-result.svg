@@ -19,7 +19,5 @@
   <text x="48" y="238" class="line" xml:space="preserve">| Rows ID Scan    |      1.00 |   131.035 |</text>
   <text x="48" y="266" class="line" xml:space="preserve">+-----------------+-----------+-----------+</text>
   <text x="48" y="294" class="line" xml:space="preserve">Speedup: 223.63x</text>
-  <line x1="408" y1="219" x2="462" y2="219" class="accent"/>
-  <line x1="400" y1="247" x2="485" y2="247" class="accent"/>
   <line x1="140" y1="302" x2="220" y2="302" class="accent"/>
 </svg>
