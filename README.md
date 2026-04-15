@@ -100,8 +100,8 @@ sql.h / sql.c           고정 패턴 SQL 파싱 + 실행
 table.h / table.c       users 테이블 저장 / 검색 / 출력
 bptree.h / bptree.c     B+Tree 구현
 unit_test.c             단위 테스트
-perf_test.c             id 검색 성능 비교
-condition_perf_test.c   WHERE 조건 성능 비교
+perf_test.c             id 1000회 검색 성능 비교
+condition_perf_test.c   id 조건 경로 성능 비교
 Makefile                빌드 스크립트
 docs/diagrams/*.mmd     Mermaid 다이어그램 소스
 ```
@@ -391,23 +391,21 @@ All unit tests passed.
 
 이 테스트는 100만 건 데이터를 넣은 뒤,
 
-- `id` 인덱스 검색과 선형 탐색 비교
-- `WHERE id = ?` 와 `WHERE age = ?` 비교
-- `WHERE id >= ...` 와 `WHERE age >= ...` 비교
+- 같은 `id` 1000개를 `B+Tree`와 `rows` 선형 탐색으로 각각 비교
+- `id = ?` 를 `B+Tree`와 `rows` 스캔으로 비교
+- `id >= ...` 를 `B+Tree`와 `rows` 스캔으로 비교
 
 를 수행합니다.
 
-로컬 실행 예시는 아래와 같았습니다.
+로컬 실행 결과 이미지는 아래와 같습니다. 측정값은 환경에 따라 달라질 수 있으므로, 아래 이미지는 각 시점의 로컬 실행 예시입니다.
 
-```text
-Exact-match WHERE benchmark (1000 queries)
-| SELECT * WHERE id = ?   |      1.00 |      1.442 ms |
-| SELECT * WHERE age = ?  |  10000.00 |   2582.243 ms |
+`./perf_test` (1000 lookups)
 
-Range WHERE benchmark (100 repeated queries, 10,000 rows/query)
-| SELECT * WHERE id >= ...  | 10000.00 |    1.882 ms |
-| SELECT * WHERE age >= ... | 10000.00 |  256.316 ms |
-```
+![perf_test local run](docs/images/perf_test-result.svg)
+
+`./condition_perf_test` (1000 exact queries)
+
+![condition_perf_test local run](docs/images/condition_perf_test-result.svg)
 
 
 ---
@@ -443,4 +441,3 @@ QUIT
 ```
 
 ---
-

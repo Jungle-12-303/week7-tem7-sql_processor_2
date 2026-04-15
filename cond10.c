@@ -6,23 +6,22 @@
 
 /*
  * 벤치마크 전에 미리 삽입할 전체 행 수이다.
- * 큰 데이터셋에서 id 조건의 접근 경로 차이를 보기 위해 100만 건을 사용한다.
+ * 원본 condition_perf_test와 동일하게 100만 건을 유지한다.
  */
 #define PERF_INSERT_COUNT 1000000
 
 /*
- * 정확히 같은 값(=) 조건을 몇 번 반복 측정할지 나타낸다.
+ * exact-match 반복 횟수만 10회로 줄인다.
  */
-#define EXACT_QUERY_COUNT 1000
+#define EXACT_QUERY_COUNT 10
 
 /*
- * 범위 조건(>=)을 몇 번 반복 측정할지 나타낸다.
+ * range 반복 횟수도 10회로 줄인다.
  */
-#define RANGE_QUERY_COUNT 100
+#define RANGE_QUERY_COUNT 10
 
 /*
  * 현재 시각을 밀리초 단위로 반환한다.
- * 두 시각의 차이를 이용해 쿼리 실행 시간을 잰다.
  */
 static double now_ms(void) {
     struct timeval tv;
@@ -32,10 +31,7 @@ static double now_ms(void) {
 }
 
 /*
- * exact-match에서 사용할 앞쪽 id 샘플을 만든다.
- *
- * rows 선형 탐색은 값을 찾는 즉시 종료하므로,
- * 1, 2, 3, ... 처럼 앞부분 id를 사용해 그 케이스를 비교한다.
+ * rows 선형 탐색이 앞에서 값을 찾고 종료하는 exact-match 샘플을 만든다.
  */
 static void build_exact_id_samples(int *sample_ids, int count, int max_id) {
     int index;
@@ -47,7 +43,6 @@ static void build_exact_id_samples(int *sample_ids, int count, int max_id) {
 
 /*
  * 비교 연산 하나를 직접 수행한다.
- * rows 선형 탐색 기반 조건 비교에서 사용한다.
  */
 static int compare_int(int left, TableComparison comparison, int right) {
     if (comparison == TABLE_COMPARISON_EQ) {
@@ -93,10 +88,7 @@ static int append_record(Record ***records, size_t *count, size_t *capacity, Rec
 }
 
 /*
- * id 조건을 rows 배열 선형 탐색으로 평가해 결과를 모은다.
- *
- * exact-match(=)는 table_scan_by_id()를 그대로 사용해서
- * 값을 찾는 즉시 종료하는 경로를 비교한다.
+ * id 조건을 rows 배열 선형 탐색으로 평가한다.
  */
 static int collect_id_condition_by_row_scan(
     Table *table,
@@ -141,8 +133,6 @@ static int collect_id_condition_by_row_scan(
 
 /*
  * id = ? exact-match를 여러 번 실행한다.
- *
- * use_btree가 1이면 인덱스를, 0이면 rows 선형 탐색을 사용한다.
  */
 static double benchmark_exact_id_lookups(
     Table *table,
@@ -172,9 +162,6 @@ static double benchmark_exact_id_lookups(
 
 /*
  * id 범위 조건을 여러 번 반복 실행한다.
- *
- * use_btree가 1이면 B+Tree 기반 id 조건 수집을,
- * 0이면 rows 선형 탐색 기반 id 조건 수집을 사용한다.
  */
 static double benchmark_id_condition_queries(
     Table *table,
@@ -219,7 +206,7 @@ static double benchmark_id_condition_queries(
 }
 
 /*
- * id 조건을 B+Tree 경로와 rows 스캔 경로로 비교하는 메인 함수이다.
+ * condition_perf_test의 반복 횟수만 낮춘 빠른 확인용 벤치마크이다.
  */
 int main(void) {
     Table *table = table_create();
@@ -309,34 +296,31 @@ int main(void) {
         return 1;
     }
 
+    printf("condition_perf_test_10\n");
     printf("Exact-match ID benchmark (%d queries)\n", EXACT_QUERY_COUNT);
-    printf("+-------------------------------+-----------+------------------+----------------+\n");
-    printf("| Method                        | Avg. Rows | Time (ms)        | First-ID Check |\n");
-    printf("+-------------------------------+-----------+------------------+----------------+\n");
-    printf("| B+Tree WHERE id = ?           | %9.2f | %16.3f | %14lld |\n",
+    printf("+-------------------------------+-----------+------------------+\n");
+    printf("| Method                        | Avg. Rows | Time (ms)        |\n");
+    printf("+-------------------------------+-----------+------------------+\n");
+    printf("| B+Tree WHERE id = ?           | %9.2f | %16.3f |\n",
            (double)id_exact_btree_rows / (double)EXACT_QUERY_COUNT,
-           id_exact_btree_ms,
-           id_exact_btree_first_ids);
-    printf("| Rows Scan WHERE id = ?        | %9.2f | %16.3f | %14lld |\n",
+           id_exact_btree_ms);
+    printf("| Rows Scan WHERE id = ?        | %9.2f | %16.3f |\n",
            (double)id_exact_row_scan_rows / (double)EXACT_QUERY_COUNT,
-           id_exact_row_scan_ms,
-           id_exact_row_scan_first_ids);
-    printf("+-------------------------------+-----------+------------------+----------------+\n");
+           id_exact_row_scan_ms);
+    printf("+-------------------------------+-----------+------------------+\n");
     printf("\n");
 
     printf("Range ID benchmark (%d repeated queries, 10,000 rows/query)\n", RANGE_QUERY_COUNT);
-    printf("+-------------------------------+-----------+------------------+----------------+\n");
-    printf("| Method                        | Avg. Rows | Time (ms)        | First-ID Check |\n");
-    printf("+-------------------------------+-----------+------------------+----------------+\n");
-    printf("| B+Tree WHERE id >= 990001     | %9.2f | %16.3f | %14lld |\n",
+    printf("+-------------------------------+-----------+------------------+\n");
+    printf("| Method                        | Avg. Rows | Time (ms)        |\n");
+    printf("+-------------------------------+-----------+------------------+\n");
+    printf("| B+Tree WHERE id >= 990001     | %9.2f | %16.3f |\n",
            (double)id_range_btree_rows / (double)RANGE_QUERY_COUNT,
-           id_range_btree_ms,
-           id_range_btree_first_ids);
-    printf("| Rows Scan WHERE id >= 990001  | %9.2f | %16.3f | %14lld |\n",
+           id_range_btree_ms);
+    printf("| Rows Scan WHERE id >= 990001  | %9.2f | %16.3f |\n",
            (double)id_range_row_scan_rows / (double)RANGE_QUERY_COUNT,
-           id_range_row_scan_ms,
-           id_range_row_scan_first_ids);
-    printf("+-------------------------------+-----------+------------------+----------------+\n");
+           id_range_row_scan_ms);
+    printf("+-------------------------------+-----------+------------------+\n");
 
     free(sample_ids);
     table_destroy(table);
