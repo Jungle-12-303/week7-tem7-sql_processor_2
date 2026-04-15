@@ -1,0 +1,32 @@
+flowchart LR
+    User["User"]
+    REPL["main.c\nREPL loop"]
+    Exec["sql_execute()"]
+    Insert["sql_execute_insert()"]
+    Select["sql_execute_select()"]
+    TableInsert["table_insert()"]
+    Rows["Table.rows\nRecord* array"]
+    Tree["B+ Tree\npk_index"]
+    CollectAll["table_collect_all()"]
+    IdCond["table_find_by_id_condition()"]
+    NameCond["table_find_by_name_matches()"]
+    AgeCond["table_find_by_age_condition()"]
+    Result["SQLResult\nstatus + action + records"]
+    Print["table_print_records()"]
+    Feedback["Inserted row / rows / Not found /\nDetailed SQL error / Execution error"]
+
+    User --> REPL --> Exec
+    Exec -->|"INSERT"| Insert --> TableInsert
+    TableInsert --> Rows
+    TableInsert -->|"bptree_insert()"| Tree
+
+    Exec -->|"SELECT"| Select
+    Select -->|"SELECT *"| CollectAll --> Result
+    Select -->|"WHERE id ..."| IdCond --> Tree
+    Select -->|"WHERE name = ..."| NameCond --> Rows
+    Select -->|"WHERE age ..."| AgeCond --> Rows
+
+    Tree --> Result
+    Rows --> Result
+    Result --> REPL
+    REPL --> Print --> Feedback --> User
