@@ -176,25 +176,41 @@ static void test_sql_execution(void) {
 
     result = sql_execute(table, "INSERT INTO users VALUES ('Alice', 20);");
     assert(result.status == SQL_STATUS_OK);
+    assert(result.action == SQL_ACTION_INSERT);
     assert(result.inserted_id == 1);
+
+    result = sql_execute(table, "INSERT INTO users VALUES ('Bob', 30);");
+    assert(result.status == SQL_STATUS_OK);
+    assert(result.action == SQL_ACTION_INSERT);
+    assert(result.inserted_id == 2);
+
+    result = sql_execute(table, "SELECT * FROM users;");
+    assert(result.status == SQL_STATUS_OK);
+    assert(result.action == SQL_ACTION_SELECT_ALL);
+    assert(result.row_count == 2);
 
     result = sql_execute(table, "SELECT * FROM users WHERE id = 1;");
     assert(result.status == SQL_STATUS_OK);
+    assert(result.action == SQL_ACTION_SELECT_ONE);
     assert(result.record != NULL);
     assert(strcmp(result.record->name, "Alice") == 0);
 
     result = sql_execute(table, "SELECT * FROM users WHERE name = 'Alice';");
     assert(result.status == SQL_STATUS_OK);
+    assert(result.action == SQL_ACTION_SELECT_ONE);
     assert(result.record != NULL);
     assert(result.record->age == 20);
 
     result = sql_execute(table, "SELECT * FROM users WHERE age = 20;");
     assert(result.status == SQL_STATUS_OK);
+    assert(result.action == SQL_ACTION_SELECT_ONE);
     assert(result.record != NULL);
     assert(result.record->id == 1);
 
     result = sql_execute(table, "SELECT * FROM users WHERE id = 999;");
     assert(result.status == SQL_STATUS_NOT_FOUND);
+    assert(result.action == SQL_ACTION_SELECT_ONE);
+    assert(result.row_count == 0);
 
     result = sql_execute(table, "INSERT users VALUES ('Bad', 10);");
     assert(result.status == SQL_STATUS_SYNTAX_ERROR);

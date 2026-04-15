@@ -18,6 +18,7 @@ int main(void) {
     printf("Simple SQL Processor with B+ Tree Index\n");
     printf("Supported statements:\n");
     printf("  INSERT INTO users VALUES ('Alice', 20);\n");
+    printf("  SELECT * FROM users;\n");
     printf("  SELECT * FROM users WHERE id = 1;\n");
     printf("  SELECT * FROM users WHERE name = 'Alice';\n");
     printf("  SELECT * FROM users WHERE age = 20;\n");
@@ -38,9 +39,13 @@ int main(void) {
         }
 
         if (result.status == SQL_STATUS_OK) {
-            if (result.inserted_id > 0 && result.record != NULL && result.record->id == result.inserted_id) {
+            if (result.action == SQL_ACTION_INSERT) {
                 printf("Inserted row with id = %d\n", result.inserted_id);
-            } else if (result.record != NULL) {
+            } else if (result.action == SQL_ACTION_SELECT_ALL) {
+                if (table_print_all(table) == 0) {
+                    printf("No rows\n");
+                }
+            } else if (result.action == SQL_ACTION_SELECT_ONE && result.record != NULL) {
                 table_print_record(result.record);
             } else {
                 printf("Done\n");

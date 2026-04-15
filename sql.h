@@ -2,6 +2,7 @@
 #define SQL_H
 
 #include "table.h"
+#include <stddef.h>
 
 typedef enum SQLStatus {
     SQL_STATUS_OK,
@@ -11,10 +12,19 @@ typedef enum SQLStatus {
     SQL_STATUS_ERROR
 } SQLStatus;
 
+typedef enum SQLAction {
+    SQL_ACTION_NONE,
+    SQL_ACTION_INSERT,
+    SQL_ACTION_SELECT_ONE,
+    SQL_ACTION_SELECT_ALL
+} SQLAction;
+
 typedef struct SQLResult {
     SQLStatus status;
+    SQLAction action;
     Record *record;
     int inserted_id;
+    size_t row_count;
 } SQLResult;
 
 /* Parses one SQL statement and executes it against the table. */

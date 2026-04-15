@@ -163,3 +163,18 @@ void table_print_record(const Record *record) {
 
     printf("id=%d, name='%s', age=%d\n", record->id, record->name, record->age);
 }
+
+/* Prints all records in insertion order and returns the printed row count. */
+size_t table_print_all(const Table *table) {
+    size_t index;
+
+    if (table == NULL) {
+        return 0;
+    }
+
+    for (index = 0; index < table->size; index++) {
+        table_print_record(table->rows[index]);
+    }
+
+    return table->size;
+}

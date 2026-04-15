@@ -142,7 +142,7 @@ static int sql_match_statement_end(const char **cursor) {
 
 /* Parses and executes the fixed INSERT syntax. */
 static SQLResult sql_execute_insert(Table *table, const char *input) {
-    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, NULL, 0};
+    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE, NULL, 0, 0};
     const char *cursor = input;
     char table_name[32];
     char name[RECORD_NAME_SIZE];
@@ -203,14 +203,16 @@ static SQLResult sql_execute_insert(Table *table, const char *input) {
     }
 
     result.status = SQL_STATUS_OK;
+    result.action = SQL_ACTION_INSERT;
     result.record = record;
     result.inserted_id = record->id;
+    result.row_count = 1;
     return result;
 }
 
 /* Parses and executes the fixed SELECT syntax. */
 static SQLResult sql_execute_select(Table *table, const char *input) {
-    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, NULL, 0};
+    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE, NULL, 0, 0};
     const char *cursor = input;
     char table_name[32];
     char column[32];
@@ -239,6 +241,13 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
     }
 
     sql_skip_spaces(&cursor);
+    if (sql_match_statement_end(&cursor)) {
+        result.status = SQL_STATUS_OK;
+        result.action = SQL_ACTION_SELECT_ALL;
+        result.row_count = table->size;
+        return result;
+    }
+
     if (!sql_match_keyword(&cursor, "WHERE")) {
         return result;
     }
@@ -274,12 +283,14 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
     }
 
     result.status = (result.record == NULL) ? SQL_STATUS_NOT_FOUND : SQL_STATUS_OK;
+    result.action = SQL_ACTION_SELECT_ONE;
+    result.row_count = (result.record == NULL) ? 0 : 1;
     return result;
 }
 
 /* Parses one SQL statement and executes it against the table. */
 SQLResult sql_execute(Table *table, const char *input) {
-    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, NULL, 0};
+    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE, NULL, 0, 0};
     const char *cursor;
 
     if (table == NULL || input == NULL) {

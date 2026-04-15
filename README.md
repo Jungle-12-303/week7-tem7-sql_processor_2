@@ -36,6 +36,7 @@
 - leaf split / internal split
 - 고정 스키마 `users(id, name, age)`
 - `INSERT INTO users VALUES ('Alice', 20);`
+- `SELECT * FROM users;`
 - `SELECT * FROM users WHERE id = 1;`
 - `SELECT * FROM users WHERE name = 'Alice';`
 - `SELECT * FROM users WHERE age = 20;`
@@ -75,6 +76,7 @@ make
 INSERT INTO users VALUES ('Alice', 20);
 INSERT INTO users VALUES ('Bob', 30);
 
+SELECT * FROM users;
 SELECT * FROM users WHERE id = 1;
 SELECT * FROM users WHERE name = 'Bob';
 SELECT * FROM users WHERE age = 20;
@@ -85,6 +87,8 @@ SELECT * FROM users WHERE age = 20;
 ```text
 Inserted row with id = 1
 Inserted row with id = 2
+id=1, name='Alice', age=20
+id=2, name='Bob', age=30
 id=1, name='Alice', age=20
 id=2, name='Bob', age=30
 id=1, name='Alice', age=20

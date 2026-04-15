@@ -45,4 +45,7 @@ Record *table_find_by_age(Table *table, int age);
 /* Prints a single record in a compact presentation-friendly format. */
 void table_print_record(const Record *record);
 
+/* Prints all records in insertion order and returns the printed row count. */
+size_t table_print_all(const Table *table);
+
 #endif
