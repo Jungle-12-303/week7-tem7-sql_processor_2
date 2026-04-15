@@ -341,6 +341,7 @@ static void test_sql_detailed_errors(void) {
     assert(result.status == SQL_STATUS_SYNTAX_ERROR);
     assert(result.error_code == 1064);
     assert(strcmp(result.sql_state, "42000") == 0);
+    assert(strstr(result.error_message, "your sql processor2 version") != NULL);
     assert(strstr(result.error_message, "near 'FORM users' at line 1") != NULL);
     sql_result_destroy(&result);
 

@@ -71,7 +71,7 @@ static void sql_set_syntax_error(SQLResult *result, const char *cursor) {
     snprintf(
         result->error_message,
         sizeof(result->error_message),
-        "ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '%s' at line 1",
+        "ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your sql processor2 version for the right syntax to use near '%s' at line 1",
         near_excerpt
     );
 }
