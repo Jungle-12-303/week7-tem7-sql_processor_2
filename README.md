@@ -38,11 +38,14 @@
 - `INSERT INTO users VALUES ('Alice', 20);`
 - `SELECT * FROM users;`
 - `SELECT * FROM users WHERE id = 1;`
+- `SELECT * FROM users WHERE id >= 10;`
 - `SELECT * FROM users WHERE name = 'Alice';`
 - `SELECT * FROM users WHERE age = 20;`
+- `SELECT * FROM users WHERE age > 20;`
 - `id` 자동 증가
-- `id` 검색은 B+ 트리 사용
-- `name`, `age` 검색은 선형 탐색 사용
+- `WHERE id` 는 `=`, `<`, `<=`, `>`, `>=`를 B+ 트리와 leaf link로 처리
+- `WHERE age` 는 `=`, `<`, `<=`, `>`, `>=`를 선형 탐색으로 처리
+- `WHERE name` 은 `=`만 지원
 
 ### 제외
 - DELETE, UPDATE
@@ -58,6 +61,7 @@
 - `sql.h`, `sql.c`: 고정 패턴 SQL 파서/실행기
 - `main.c`: 데모용 REPL
 - `perf_test.c`: 100만 건 insert 후 검색 속도 비교
+- `condition_perf_test.c`: `WHERE id ...` 와 `WHERE age ...` 조건 성능 비교
 - `unit_test.c`: assert 기반 단위 테스트
 - `Makefile`: 빌드 스크립트
 
@@ -68,6 +72,7 @@ make
 ./main
 ./unit_test
 ./perf_test
+./condition_perf_test
 ```
 
 ## 5. SQL 예시
@@ -78,8 +83,10 @@ INSERT INTO users VALUES ('Bob', 30);
 
 SELECT * FROM users;
 SELECT * FROM users WHERE id = 1;
+SELECT * FROM users WHERE id >= 2;
 SELECT * FROM users WHERE name = 'Bob';
 SELECT * FROM users WHERE age = 20;
+SELECT * FROM users WHERE age > 20;
 ```
 
 예상 출력:
@@ -137,6 +144,12 @@ split 후:
   - B+ 트리 기반 `table_find_by_id`
   - 선형 탐색 기반 `table_scan_by_id`
 - 시간 측정은 `gettimeofday()` 사용
+
+조건 비교 벤치마크는 `./condition_perf_test` 로 실행할 수 있습니다.
+
+- `WHERE id = ?` 와 `WHERE age = ?` 반복 비교
+- `WHERE id >= 990001` 와 `WHERE age >= 99` 반복 비교
+- 두 range query는 모두 쿼리당 `10,000`건을 반환하도록 맞춰 둠
 
 | Inserted Rows | B+ Tree Search Time (ms) | Linear Search Time (ms) | Speedup |
 | --- | ---: | ---: | ---: |

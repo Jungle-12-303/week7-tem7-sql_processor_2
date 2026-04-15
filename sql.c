@@ -5,6 +5,19 @@
 #include <stdlib.h>
 #include <strings.h>
 
+/* Builds a zero-initialized SQL result with the requested defaults. */
+static SQLResult sql_make_result(SQLStatus status, SQLAction action) {
+    SQLResult result;
+
+    result.status = status;
+    result.action = action;
+    result.record = NULL;
+    result.records = NULL;
+    result.inserted_id = 0;
+    result.row_count = 0;
+    return result;
+}
+
 /* Skips whitespace characters in the parser cursor. */
 static void sql_skip_spaces(const char **cursor) {
     while (**cursor != '\0' && isspace((unsigned char)**cursor)) {
@@ -128,6 +141,43 @@ static int sql_parse_int(const char **cursor, int *value) {
     return 1;
 }
 
+/* Parses one of =, <, <=, >, >= into a comparison enum. */
+static int sql_parse_comparison(const char **cursor, TableComparison *comparison) {
+    sql_skip_spaces(cursor);
+
+    if ((*cursor)[0] == '>' && (*cursor)[1] == '=') {
+        *comparison = TABLE_COMPARISON_GE;
+        *cursor += 2;
+        return 1;
+    }
+
+    if ((*cursor)[0] == '<' && (*cursor)[1] == '=') {
+        *comparison = TABLE_COMPARISON_LE;
+        *cursor += 2;
+        return 1;
+    }
+
+    if (**cursor == '>') {
+        *comparison = TABLE_COMPARISON_GT;
+        (*cursor)++;
+        return 1;
+    }
+
+    if (**cursor == '<') {
+        *comparison = TABLE_COMPARISON_LT;
+        (*cursor)++;
+        return 1;
+    }
+
+    if (**cursor == '=') {
+        *comparison = TABLE_COMPARISON_EQ;
+        (*cursor)++;
+        return 1;
+    }
+
+    return 0;
+}
+
 /* Accepts an optional semicolon and trailing whitespace at the end. */
 static int sql_match_statement_end(const char **cursor) {
     sql_skip_spaces(cursor);
@@ -142,7 +192,7 @@ static int sql_match_statement_end(const char **cursor) {
 
 /* Parses and executes the fixed INSERT syntax. */
 static SQLResult sql_execute_insert(Table *table, const char *input) {
-    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE, NULL, 0, 0};
+    SQLResult result = sql_make_result(SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE);
     const char *cursor = input;
     char table_name[32];
     char name[RECORD_NAME_SIZE];
@@ -212,12 +262,13 @@ static SQLResult sql_execute_insert(Table *table, const char *input) {
 
 /* Parses and executes the fixed SELECT syntax. */
 static SQLResult sql_execute_select(Table *table, const char *input) {
-    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE, NULL, 0, 0};
+    SQLResult result = sql_make_result(SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE);
     const char *cursor = input;
     char table_name[32];
     char column[32];
     char text_value[RECORD_NAME_SIZE];
     int int_value;
+    TableComparison comparison;
 
     if (!sql_match_keyword(&cursor, "SELECT")) {
         return result;
@@ -242,9 +293,14 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
 
     sql_skip_spaces(&cursor);
     if (sql_match_statement_end(&cursor)) {
+        if (!table_collect_all(table, &result.records, &result.row_count)) {
+            result.status = SQL_STATUS_ERROR;
+            return result;
+        }
+
         result.status = SQL_STATUS_OK;
-        result.action = SQL_ACTION_SELECT_ALL;
-        result.row_count = table->size;
+        result.action = SQL_ACTION_SELECT_ROWS;
+        result.record = (result.row_count > 0) ? result.records[0] : NULL;
         return result;
     }
 
@@ -256,7 +312,7 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
         return result;
     }
 
-    if (!sql_match_char(&cursor, '=')) {
+    if (!sql_parse_comparison(&cursor, &comparison)) {
         return result;
     }
 
@@ -265,32 +321,45 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
             return result;
         }
 
-        result.record = table_find_by_id(table, int_value);
+        if (!table_find_by_id_condition(table, comparison, int_value, &result.records, &result.row_count)) {
+            result.status = SQL_STATUS_ERROR;
+            return result;
+        }
     } else if (strcasecmp(column, "name") == 0) {
+        if (comparison != TABLE_COMPARISON_EQ) {
+            return result;
+        }
+
         if (!sql_parse_string(&cursor, text_value, sizeof(text_value)) || !sql_match_statement_end(&cursor)) {
             return result;
         }
 
-        result.record = table_find_by_name(table, text_value);
+        if (!table_find_by_name_matches(table, text_value, &result.records, &result.row_count)) {
+            result.status = SQL_STATUS_ERROR;
+            return result;
+        }
     } else if (strcasecmp(column, "age") == 0) {
         if (!sql_parse_int(&cursor, &int_value) || !sql_match_statement_end(&cursor)) {
             return result;
         }
 
-        result.record = table_find_by_age(table, int_value);
+        if (!table_find_by_age_condition(table, comparison, int_value, &result.records, &result.row_count)) {
+            result.status = SQL_STATUS_ERROR;
+            return result;
+        }
     } else {
         return result;
     }
 
-    result.status = (result.record == NULL) ? SQL_STATUS_NOT_FOUND : SQL_STATUS_OK;
-    result.action = SQL_ACTION_SELECT_ONE;
-    result.row_count = (result.record == NULL) ? 0 : 1;
+    result.record = (result.row_count > 0) ? result.records[0] : NULL;
+    result.status = (result.row_count == 0) ? SQL_STATUS_NOT_FOUND : SQL_STATUS_OK;
+    result.action = SQL_ACTION_SELECT_ROWS;
     return result;
 }
 
 /* Parses one SQL statement and executes it against the table. */
 SQLResult sql_execute(Table *table, const char *input) {
-    SQLResult result = {SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE, NULL, 0, 0};
+    SQLResult result = sql_make_result(SQL_STATUS_SYNTAX_ERROR, SQL_ACTION_NONE);
     const char *cursor;
 
     if (table == NULL || input == NULL) {
@@ -313,4 +382,18 @@ SQLResult sql_execute(Table *table, const char *input) {
 
     result = sql_execute_select(table, input);
     return result;
+}
+
+/* Releases any heap memory owned by a SQL result. */
+void sql_result_destroy(SQLResult *result) {
+    if (result == NULL) {
+        return;
+    }
+
+    free(result->records);
+    result->records = NULL;
+    result->record = NULL;
+    result->inserted_id = 0;
+    result->row_count = 0;
+    result->action = SQL_ACTION_NONE;
 }
