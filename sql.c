@@ -1,8 +1,10 @@
 #include "sql.h"
 
+#include <stdio.h>
 #include <ctype.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 /* Builds a zero-initialized SQL result with the requested defaults. */
@@ -15,7 +17,76 @@ static SQLResult sql_make_result(SQLStatus status, SQLAction action) {
     result.records = NULL;
     result.inserted_id = 0;
     result.row_count = 0;
+    result.error_code = 0;
+    result.sql_state[0] = '\0';
+    result.error_message[0] = '\0';
     return result;
+}
+
+static int sql_is_known_column(const char *column) {
+    return strcasecmp(column, "id") == 0 ||
+           strcasecmp(column, "name") == 0 ||
+           strcasecmp(column, "age") == 0;
+}
+
+static void sql_build_near_excerpt(const char *cursor, char *buffer, size_t buffer_size) {
+    size_t length = 0;
+
+    while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+        cursor++;
+    }
+
+    if (*cursor == '\0') {
+        snprintf(buffer, buffer_size, "end of input");
+        return;
+    }
+
+    while (cursor[length] != '\0' &&
+           cursor[length] != '\n' &&
+           cursor[length] != '\r' &&
+           cursor[length] != ';' &&
+           length + 1 < buffer_size) {
+        buffer[length] = cursor[length];
+        length++;
+    }
+
+    while (length > 0 && isspace((unsigned char)buffer[length - 1])) {
+        length--;
+    }
+
+    buffer[length] = '\0';
+
+    if (length == 0) {
+        snprintf(buffer, buffer_size, "end of input");
+    }
+}
+
+static void sql_set_syntax_error(SQLResult *result, const char *cursor) {
+    char near_excerpt[64];
+
+    sql_build_near_excerpt(cursor, near_excerpt, sizeof(near_excerpt));
+    result->status = SQL_STATUS_SYNTAX_ERROR;
+    result->error_code = 1064;
+    snprintf(result->sql_state, sizeof(result->sql_state), "42000");
+    snprintf(
+        result->error_message,
+        sizeof(result->error_message),
+        "ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your sql processor2 version for the right syntax to use near '%s' at line 1",
+        near_excerpt
+    );
+}
+
+static void sql_set_unknown_column_error(SQLResult *result, const char *column, const char *clause_name) {
+    result->status = SQL_STATUS_QUERY_ERROR;
+    result->error_code = 1054;
+    snprintf(result->sql_state, sizeof(result->sql_state), "42S22");
+    snprintf(
+        result->error_message,
+        sizeof(result->error_message),
+        "ERROR 1054 (42S22): Unknown column '%s' in '%s'",
+        column,
+        clause_name
+    );
 }
 
 /* Skips whitespace characters in the parser cursor. */
@@ -205,43 +276,53 @@ static SQLResult sql_execute_insert(Table *table, const char *input) {
 
     sql_skip_spaces(&cursor);
     if (!sql_match_keyword(&cursor, "INTO")) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_parse_identifier(&cursor, table_name, sizeof(table_name))) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (strcasecmp(table_name, "users") != 0) {
+        sql_set_syntax_error(&result, table_name);
         return result;
     }
 
     sql_skip_spaces(&cursor);
     if (!sql_match_keyword(&cursor, "VALUES")) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_match_char(&cursor, '(')) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_parse_string(&cursor, name, sizeof(name))) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_match_char(&cursor, ',')) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_parse_int(&cursor, &age)) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_match_char(&cursor, ')')) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_match_statement_end(&cursor)) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
@@ -266,28 +347,47 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
     const char *cursor = input;
     char table_name[32];
     char column[32];
+    char selected_column[32];
     char text_value[RECORD_NAME_SIZE];
     int int_value;
     TableComparison comparison;
+    const char *comparison_cursor;
+    const char *select_list_cursor;
 
     if (!sql_match_keyword(&cursor, "SELECT")) {
         return result;
     }
 
+    sql_skip_spaces(&cursor);
+    select_list_cursor = cursor;
     if (!sql_match_char(&cursor, '*')) {
+        if (!sql_parse_identifier(&cursor, selected_column, sizeof(selected_column))) {
+            sql_set_syntax_error(&result, cursor);
+            return result;
+        }
+
+        if (!sql_is_known_column(selected_column)) {
+            sql_set_unknown_column_error(&result, selected_column, "field list");
+            return result;
+        }
+
+        sql_set_syntax_error(&result, select_list_cursor);
         return result;
     }
 
     sql_skip_spaces(&cursor);
     if (!sql_match_keyword(&cursor, "FROM")) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_parse_identifier(&cursor, table_name, sizeof(table_name))) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (strcasecmp(table_name, "users") != 0) {
+        sql_set_syntax_error(&result, table_name);
         return result;
     }
 
@@ -305,19 +405,24 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
     }
 
     if (!sql_match_keyword(&cursor, "WHERE")) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (!sql_parse_identifier(&cursor, column, sizeof(column))) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
+    comparison_cursor = cursor;
     if (!sql_parse_comparison(&cursor, &comparison)) {
+        sql_set_syntax_error(&result, cursor);
         return result;
     }
 
     if (strcasecmp(column, "id") == 0) {
         if (!sql_parse_int(&cursor, &int_value) || !sql_match_statement_end(&cursor)) {
+            sql_set_syntax_error(&result, cursor);
             return result;
         }
 
@@ -327,10 +432,12 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
         }
     } else if (strcasecmp(column, "name") == 0) {
         if (comparison != TABLE_COMPARISON_EQ) {
+            sql_set_syntax_error(&result, comparison_cursor);
             return result;
         }
 
         if (!sql_parse_string(&cursor, text_value, sizeof(text_value)) || !sql_match_statement_end(&cursor)) {
+            sql_set_syntax_error(&result, cursor);
             return result;
         }
 
@@ -340,6 +447,7 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
         }
     } else if (strcasecmp(column, "age") == 0) {
         if (!sql_parse_int(&cursor, &int_value) || !sql_match_statement_end(&cursor)) {
+            sql_set_syntax_error(&result, cursor);
             return result;
         }
 
@@ -348,6 +456,7 @@ static SQLResult sql_execute_select(Table *table, const char *input) {
             return result;
         }
     } else {
+        sql_set_unknown_column_error(&result, column, "where clause");
         return result;
     }
 
@@ -371,16 +480,23 @@ SQLResult sql_execute(Table *table, const char *input) {
     sql_skip_spaces(&cursor);
 
     if (sql_match_keyword(&cursor, "EXIT") || sql_match_keyword(&cursor, "QUIT")) {
-        result.status = sql_match_statement_end(&cursor) ? SQL_STATUS_EXIT : SQL_STATUS_SYNTAX_ERROR;
+        if (sql_match_statement_end(&cursor)) {
+            result.status = SQL_STATUS_EXIT;
+        } else {
+            sql_set_syntax_error(&result, cursor);
+        }
         return result;
     }
 
     result = sql_execute_insert(table, input);
-    if (result.status != SQL_STATUS_SYNTAX_ERROR) {
+    if (result.status != SQL_STATUS_SYNTAX_ERROR || result.error_message[0] != '\0') {
         return result;
     }
 
     result = sql_execute_select(table, input);
+    if (result.status == SQL_STATUS_SYNTAX_ERROR && result.error_message[0] == '\0') {
+        sql_set_syntax_error(&result, cursor);
+    }
     return result;
 }
 
@@ -396,4 +512,8 @@ void sql_result_destroy(SQLResult *result) {
     result->inserted_id = 0;
     result->row_count = 0;
     result->action = SQL_ACTION_NONE;
+    result->status = SQL_STATUS_OK;
+    result->error_code = 0;
+    result->sql_state[0] = '\0';
+    result->error_message[0] = '\0';
 }

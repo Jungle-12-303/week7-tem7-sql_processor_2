@@ -331,6 +331,36 @@ static void test_sql_execution(void) {
     table_destroy(table);
 }
 
+static void test_sql_detailed_errors(void) {
+    Table *table = table_create();
+    SQLResult result;
+
+    assert(table != NULL);
+
+    result = sql_execute(table, "SELECT * FORM users;");
+    assert(result.status == SQL_STATUS_SYNTAX_ERROR);
+    assert(result.error_code == 1064);
+    assert(strcmp(result.sql_state, "42000") == 0);
+    assert(strstr(result.error_message, "your sql processor2 version") != NULL);
+    assert(strstr(result.error_message, "near 'FORM users' at line 1") != NULL);
+    sql_result_destroy(&result);
+
+    result = sql_execute(table, "SELECT nickname FROM users;");
+    assert(result.status == SQL_STATUS_QUERY_ERROR);
+    assert(result.error_code == 1054);
+    assert(strcmp(result.sql_state, "42S22") == 0);
+    assert(strcmp(result.error_message, "ERROR 1054 (42S22): Unknown column 'nickname' in 'field list'") == 0);
+    sql_result_destroy(&result);
+
+    result = sql_execute(table, "SELECT * FROM users WHERE nickname = 1;");
+    assert(result.status == SQL_STATUS_QUERY_ERROR);
+    assert(result.error_code == 1054);
+    assert(strcmp(result.error_message, "ERROR 1054 (42S22): Unknown column 'nickname' in 'where clause'") == 0);
+    sql_result_destroy(&result);
+
+    table_destroy(table);
+}
+
 /* Runs all unit tests in a single executable. */
 int main(void) {
     test_empty_tree_search();
@@ -344,6 +374,7 @@ int main(void) {
     test_table_linear_search_fields();
     test_table_condition_search();
     test_sql_execution();
+    test_sql_detailed_errors();
 
     printf("All unit tests passed.\n");
     return 0;

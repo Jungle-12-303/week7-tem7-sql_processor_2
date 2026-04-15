@@ -53,6 +53,8 @@ int main(void) {
             }
         } else if (result.status == SQL_STATUS_NOT_FOUND) {
             printf("Not found\n");
+        } else if (result.error_message[0] != '\0') {
+            printf("%s\n", result.error_message);
         } else if (result.status == SQL_STATUS_SYNTAX_ERROR) {
             printf("Syntax error\n");
         } else {
