@@ -401,11 +401,11 @@ All unit tests passed.
 
 `./perf_test` (1000 lookups)
 
-![perf_test local run](docs/images/perf_test-result.svg)
+![perf_test local run](https://raw.githubusercontent.com/Jungle-12-303/week7-tem7-sql_processor_2/main/docs/images/perf_test-result.svg?v=20260416-1)
 
 `./condition_perf_test` (1000 exact queries)
 
-![condition_perf_test local run](docs/images/condition_perf_test-result.svg)
+![condition_perf_test local run](https://raw.githubusercontent.com/Jungle-12-303/week7-tem7-sql_processor_2/main/docs/images/condition_perf_test-result.svg?v=20260416-1)
 
 
 ---
