@@ -3,6 +3,7 @@
     .frame { fill: #111827; stroke: #334155; stroke-width: 2; }
     .title { fill: #e5e7eb; font: 600 20px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
     .line { fill: #d1d5db; font: 18px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    .accent { stroke: #ef4444; stroke-width: 3; stroke-linecap: round; }
   </style>
   <rect width="1160" height="340" fill="#0b1020"/>
   <rect x="24" y="24" width="1112" height="292" rx="16" class="frame"/>
@@ -18,4 +19,7 @@
   <text x="48" y="238" class="line" xml:space="preserve">| Rows ID Scan    |      1.00 |   131.035 |</text>
   <text x="48" y="266" class="line" xml:space="preserve">+-----------------+-----------+-----------+</text>
   <text x="48" y="294" class="line" xml:space="preserve">Speedup: 223.63x</text>
+  <line x1="408" y1="219" x2="462" y2="219" class="accent"/>
+  <line x1="400" y1="247" x2="485" y2="247" class="accent"/>
+  <line x1="140" y1="302" x2="220" y2="302" class="accent"/>
 </svg>

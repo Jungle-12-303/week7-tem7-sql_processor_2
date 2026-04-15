@@ -3,6 +3,7 @@
     .frame { fill: #111827; stroke: #334155; stroke-width: 2; }
     .title { fill: #e5e7eb; font: 600 20px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
     .line { fill: #d1d5db; font: 18px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    .accent { stroke: #ef4444; stroke-width: 3; stroke-linecap: round; }
   </style>
   <rect width="1160" height="580" fill="#0b1020"/>
   <rect x="24" y="24" width="1112" height="532" rx="16" class="frame"/>
@@ -26,4 +27,10 @@
   <text x="48" y="474" class="line" xml:space="preserve">| Rows Scan WHERE id &gt;= 990001  |  10000.00 |          730.508 |       99000100 |</text>
   <text x="48" y="502" class="line" xml:space="preserve">+-------------------------------+-----------+------------------+----------------+</text>
   <text x="48" y="526" class="line" xml:space="preserve">Speedup: 294.80x</text>
+  <line x1="568" y1="215" x2="626" y2="215" class="accent"/>
+  <line x1="568" y1="243" x2="626" y2="243" class="accent"/>
+  <line x1="140" y1="294" x2="202" y2="294" class="accent"/>
+  <line x1="568" y1="455" x2="626" y2="455" class="accent"/>
+  <line x1="556" y1="483" x2="640" y2="483" class="accent"/>
+  <line x1="140" y1="534" x2="220" y2="534" class="accent"/>
 </svg>
